@@ -1,0 +1,56 @@
+{
+  "name": "openssl-wasm-native",
+  "version": "3.3.2-wasm-native.1",
+  "description": "OpenSSL WASM-Native with persistent certificate storage and async loading",
+  "main": "wasm/openssl-wasm-native.js",
+  "types": "wasm/openssl-wasm-native.d.ts",
+  "files": [
+    "wasm/",
+    "install-wasm-native/",
+    "certs/",
+    "examples/"
+  ],
+  "scripts": {
+    "build": "./build-wasm-native.sh foundation",
+    "build:native": "./build-wasm-native.sh wasm-native",
+    "test": "node examples/openssl-wasm-native-example.js",
+    "clean": "rm -rf build-* install-* wasm/*.wasm wasm/*.js"
+  },
+  "keywords": [
+    "openssl",
+    "wasm", 
+    "webassembly",
+    "cryptography",
+    "certificates",
+    "ssl",
+    "tls",
+    "security",
+    "persistent-storage",
+    "idbfs"
+  ],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/superstruct/openssl.wasm.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "browser": {
+    "fs": false,
+    "path": false
+  },
+  "buildInfo": {
+    "buildType": "wasm-native",
+    "buildDate": "2025-09-05T08:28:04Z",
+    "emscriptenVersion": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.13-git",
+    "features": {
+      "persistentStorage": true,
+      "asyncLoading": true,
+      "certificateCache": true,
+      "securityFirst": true
+    }
+  }
+}

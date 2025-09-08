@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenSSL.wasm SIMD Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f1b0b7;
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .demo-section h3 {
+            color: #495057;
+            margin-top: 0;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin: 15px 0;
+            padding: 15px;
+            background-color: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .benchmark-results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .performance-chart {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .input-group input, .input-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 OpenSSL.wasm SIMD Optimization Demo</h1>
+        
+        <div id="initialization-status" class="status">
+            Initializing OpenSSL.wasm...
+        </div>
+        
+        <div class="demo-section">
+            <h3>📊 System Information</h3>
+            <div id="system-info" class="results">Loading...</div>
+        </div>
+        
+        <div class="demo-section">
+            <h3>⚡ Performance Benchmark</h3>
+            <p>Compare SIMD-optimized vs fallback performance for cryptographic operations.</p>
+            <button id="run-benchmark" onclick="runBenchmark()" disabled>Run SIMD Benchmark</button>
+            <div class="benchmark-results">
+                <div class="performance-chart">
+                    <h4>SHA-256 Performance</h4>
+                    <div id="sha256-benchmark" class="results">Click "Run SIMD Benchmark" to test</div>
+                </div>
+                <div class="performance-chart">
+                    <h4>Overall Performance</h4>
+                    <div id="overall-benchmark" class="results">Benchmark not run</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h3>🔐 Cryptographic Operations Demo</h3>
+            
+            <div class="input-group">
+                <label>Input Text:</label>
+                <textarea id="crypto-input" rows="3">Hello, SIMD-optimized OpenSSL.wasm!</textarea>
+            </div>
+            
+            <button onclick="runCryptoDemo()">Test All Crypto Operations</button>
+            
+            <div id="crypto-results" class="results">Results will appear here...</div>
+        </div>
+        
+        <div class="demo-section">
+            <h3>🔑 AES Encryption Demo</h3>
+            
+            <div class="input-group">
+                <label>Plaintext:</label>
+                <textarea id="aes-plaintext" rows="2">This is a test message for AES encryption with SIMD optimization!</textarea>
+            </div>
+            
+            <button onclick="runAESDemo()">Encrypt & Decrypt with AES-256-CBC</button>
+            
+            <div id="aes-results" class="results">Results will appear here...</div>
+        </div>
+        
+        <div class="demo-section">
+            <h3>🎲 Random Number Generation</h3>
+            
+            <div class="input-group">
+                <label>Number of bytes:</label>
+                <input type="number" id="random-bytes" value="32" min="1" max="1024">
+            </div>
+            
+            <button onclick="generateRandomBytes()">Generate Random Bytes</button>
+            
+            <div id="random-results" class="results">Results will appear here...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initOpenSSL, isSimdSupported } from '../src/index.js';
+        
+        let openssl = null;
+        let initializationComplete = false;
+        
+        // Utility functions
+        function toHex(bytes) {
+            return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        }
+        
+        function fromHex(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+            }
+            return bytes;
+        }
+        
+        function textToBytes(text) {
+            return new TextEncoder().encode(text);
+        }
+        
+        function bytesToText(bytes) {
+            return new TextDecoder().decode(bytes);
+        }
+        
+        // Initialize OpenSSL
+        async function initializeOpenSSL() {
+            const statusDiv = document.getElementById('initialization-status');
+            
+            try {
+                statusDiv.textContent = 'Detecting SIMD support...';
+                const simdSupported = isSimdSupported();
+                
+                statusDiv.textContent = `SIMD ${simdSupported ? 'detected' : 'not available'}, loading OpenSSL.wasm...`;
+                
+                openssl = await initOpenSSL('../dist');
+                
+                const version = openssl.getVersion();
+                const hasSimd = openssl.hasSimd();
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ OpenSSL.wasm initialized successfully! Version: ${version}, SIMD: ${hasSimd ? 'enabled' : 'disabled'}`;
+                
+                // Update system info
+                document.getElementById('system-info').textContent = 
+                    `OpenSSL Version: ${version}\n` +
+                    `Version Number: ${openssl.getVersionNumber()}\n` +
+                    `SIMD Support: ${hasSimd ? 'Yes' : 'No'}\n` +
+                    `Browser SIMD: ${simdSupported ? 'Supported' : 'Not Supported'}\n` +
+                    `User Agent: ${navigator.userAgent}`;
+                
+                // Enable buttons
+                document.getElementById('run-benchmark').disabled = false;
+                initializationComplete = true;
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Failed to initialize OpenSSL.wasm: ${error.message}`;
+                console.error('Initialization error:', error);
+            }
+        }
+        
+        // Global functions for buttons
+        window.runBenchmark = async function() {
+            if (!initializationComplete) return;
+            
+            const sha256Div = document.getElementById('sha256-benchmark');
+            const overallDiv = document.getElementById('overall-benchmark');
+            
+            sha256Div.textContent = 'Running SHA-256 benchmark...';
+            overallDiv.textContent = 'Running overall benchmark...';
+            
+            try {
+                // Test data
+                const testData = new Uint8Array(1024 * 1024); // 1MB
+                for (let i = 0; i < testData.length; i++) {
+                    testData[i] = i & 0xFF;
+                }
+                
+                // SHA-256 benchmark
+                const sha256Start = performance.now();
+                for (let i = 0; i < 100; i++) {
+                    openssl.sha256(testData);
+                }
+                const sha256Time = performance.now() - sha256Start;
+                
+                sha256Div.textContent = 
+                    `SHA-256 Performance:\n` +
+                    `100 iterations of 1MB: ${sha256Time.toFixed(2)} ms\n` +
+                    `Average per hash: ${(sha256Time / 100).toFixed(2)} ms\n` +
+                    `Throughput: ${((100 * testData.length) / (sha256Time / 1000) / 1024 / 1024).toFixed(2)} MB/s`;
+                
+                // Overall benchmark using internal function if available
+                let simdBenchmark = 'N/A';
+                if (openssl.hasSimd()) {
+                    const benchmarkTime = openssl.benchmarkSimd();
+                    simdBenchmark = benchmarkTime > 0 ? `${benchmarkTime} ms` : 'Failed';
+                }
+                
+                overallDiv.textContent = 
+                    `SIMD Status: ${openssl.hasSimd() ? 'Enabled' : 'Disabled'}\n` +
+                    `Internal SIMD Benchmark: ${simdBenchmark}\n` +
+                    `Browser Performance: ${sha256Time.toFixed(2)} ms\n` +
+                    `Performance Rating: ${sha256Time < 1000 ? 'Excellent' : sha256Time < 2000 ? 'Good' : 'Moderate'}`;
+                    
+            } catch (error) {
+                sha256Div.textContent = `Benchmark failed: ${error.message}`;
+                overallDiv.textContent = `Error: ${error.message}`;
+            }
+        };
+        
+        window.runCryptoDemo = function() {
+            if (!initializationComplete) return;
+            
+            const input = document.getElementById('crypto-input').value;
+            const resultsDiv = document.getElementById('crypto-results');
+            
+            try {
+                const inputBytes = textToBytes(input);
+                
+                const sha256 = openssl.sha256(inputBytes);
+                const sha1 = openssl.sha1(inputBytes);
+                const md5 = openssl.md5(inputBytes);
+                
+                // HMAC test
+                const key = textToBytes('secret-key-for-hmac');
+                const hmac = openssl.hmacSha256(key, inputBytes);
+                
+                resultsDiv.textContent = 
+                    `Input: ${input}\n\n` +
+                    `SHA-256: ${toHex(sha256)}\n` +
+                    `SHA-1:   ${toHex(sha1)}\n` +
+                    `MD5:     ${toHex(md5)}\n\n` +
+                    `HMAC-SHA256 (key: "secret-key-for-hmac"):\n${toHex(hmac)}\n\n` +
+                    `All operations completed ${openssl.hasSimd() ? 'with SIMD optimizations' : 'without SIMD'}`;
+                    
+            } catch (error) {
+                resultsDiv.textContent = `Error: ${error.message}`;
+            }
+        };
+        
+        window.runAESDemo = function() {
+            if (!initializationComplete) return;
+            
+            const plaintext = document.getElementById('aes-plaintext').value;
+            const resultsDiv = document.getElementById('aes-results');
+            
+            try {
+                // Generate random key and IV
+                const key = openssl.randomBytes(32); // 256-bit key
+                const iv = openssl.randomBytes(16);  // 128-bit IV
+                
+                const plaintextBytes = textToBytes(plaintext);
+                
+                // Encrypt
+                const encryptStart = performance.now();
+                const ciphertext = openssl.aesEncrypt(plaintextBytes, key, iv);
+                const encryptTime = performance.now() - encryptStart;
+                
+                // Decrypt
+                const decryptStart = performance.now();
+                const decryptedBytes = openssl.aesDecrypt(ciphertext, key, iv);
+                const decryptTime = performance.now() - decryptStart;
+                
+                const decryptedText = bytesToText(decryptedBytes);
+                
+                resultsDiv.textContent = 
+                    `Original:  ${plaintext}\n\n` +
+                    `Key (hex): ${toHex(key)}\n` +
+                    `IV (hex):  ${toHex(iv)}\n\n` +
+                    `Ciphertext (${ciphertext.length} bytes):\n${toHex(ciphertext)}\n\n` +
+                    `Decrypted: ${decryptedText}\n\n` +
+                    `Encryption time: ${encryptTime.toFixed(3)} ms\n` +
+                    `Decryption time: ${decryptTime.toFixed(3)} ms\n` +
+                    `Success: ${plaintext === decryptedText ? 'Yes' : 'No'}\n` +
+                    `SIMD optimized: ${openssl.hasSimd() ? 'Yes' : 'No'}`;
+                    
+            } catch (error) {
+                resultsDiv.textContent = `Error: ${error.message}`;
+            }
+        };
+        
+        window.generateRandomBytes = function() {
+            if (!initializationComplete) return;
+            
+            const numBytes = parseInt(document.getElementById('random-bytes').value);
+            const resultsDiv = document.getElementById('random-results');
+            
+            if (numBytes < 1 || numBytes > 1024) {
+                resultsDiv.textContent = 'Please enter a number between 1 and 1024';
+                return;
+            }
+            
+            try {
+                const randomBytes = openssl.randomBytes(numBytes);
+                
+                resultsDiv.textContent = 
+                    `Generated ${numBytes} random bytes:\n\n` +
+                    `Hex: ${toHex(randomBytes)}\n\n` +
+                    `Base64: ${btoa(String.fromCharCode.apply(null, randomBytes))}\n\n` +
+                    `Entropy test (basic): ${checkEntropy(randomBytes)}`;
+                    
+            } catch (error) {
+                resultsDiv.textContent = `Error: ${error.message}`;
+            }
+        };
+        
+        function checkEntropy(bytes) {
+            const counts = new Array(256).fill(0);
+            for (let byte of bytes) {
+                counts[byte]++;
+            }
+            
+            let entropy = 0;
+            for (let count of counts) {
+                if (count > 0) {
+                    const p = count / bytes.length;
+                    entropy -= p * Math.log2(p);
+                }
+            }
+            
+            return `${entropy.toFixed(2)} bits/byte (max: 8.0)`;
+        }
+        
+        // Start initialization
+        initializeOpenSSL();
+    </script>
+</body>
+</html>

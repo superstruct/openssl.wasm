@@ -1,0 +1,317 @@
+# OpenSSL WASM-Native CMake Configuration
+# 
+# WASM Integration Copyright (c) 2025 Superstruct Ltd, New Zealand
+# Licensed under the same license as the underlying OpenSSL project (Apache License 2.0)
+#
+# You can obtain a copy of the License in the file LICENSE.txt in the source 
+# distribution or at https://www.openssl.org/source/license.html
+#
+# Enhanced build configuration supporting both foundation and WASM-native builds
+# Advanced WASM-native build configuration for OpenSSL
+
+cmake_minimum_required(VERSION 3.16)
+
+project(OpenSSL_WASM 
+    VERSION 3.3.2
+    DESCRIPTION "OpenSSL WASM-Native with persistent certificate storage"
+    LANGUAGES C ASM
+)
+
+# Build type detection
+set(BUILD_TYPE "foundation" CACHE STRING "Build type: foundation or wasm-native")
+set_property(CACHE BUILD_TYPE PROPERTY STRINGS "foundation" "wasm-native")
+
+# Common OpenSSL configuration options
+option(OPENSSL_NO_DEPRECATED "Disable deprecated functionality" OFF)
+option(OPENSSL_NO_SHARED "Build static library only" ON)
+option(OPENSSL_NO_TESTS "Disable tests" ON)
+option(OPENSSL_NO_APPS "Disable OpenSSL applications" OFF)
+
+# WASM-native specific options
+option(ENABLE_IDBFS "Enable IDBFS persistent certificate storage" OFF)
+option(ENABLE_ASYNC "Enable async certificate loading" OFF) 
+option(ENABLE_CERT_CACHE "Enable certificate caching system" OFF)
+
+# Security configuration
+option(OPENSSL_SECURE_MEMORY "Enable secure memory allocation" ON)
+option(OPENSSL_RAND_SEED_OS "Use OS random seed" ON)
+
+# OpenSSL feature toggles for size optimization
+option(OPENSSL_NO_SSL3 "Disable SSL 3.0" ON)
+option(OPENSSL_NO_WEAK_SSL_CIPHERS "Disable weak SSL ciphers" ON)
+option(OPENSSL_NO_COMP "Disable compression" OFF)
+option(OPENSSL_NO_PSK "Disable PSK" OFF)
+option(OPENSSL_NO_SRP "Disable SRP" ON)
+
+message(STATUS "=== OpenSSL WASM Build Configuration ===")
+message(STATUS "Build Type: ${BUILD_TYPE}")
+message(STATUS "IDBFS Support: ${ENABLE_IDBFS}")
+message(STATUS "Async Loading: ${ENABLE_ASYNC}")
+message(STATUS "Certificate Cache: ${ENABLE_CERT_CACHE}")
+
+# Emscripten detection and validation
+if(NOT EMSCRIPTEN)
+    message(FATAL_ERROR "This CMake configuration requires Emscripten. Please use: emcmake cmake")
+endif()
+
+# Base compiler and linker flags
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -flto")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -flto")
+
+# Common WASM flags for both build types
+set(WASM_BASE_FLAGS
+    -s WASM=1
+    -s ALLOW_MEMORY_GROWTH=1
+    -s INITIAL_MEMORY=64MB
+    -s MAXIMUM_MEMORY=256MB
+    -s STACK_SIZE=5MB
+    -s NO_EXIT_RUNTIME=1
+    -s MODULARIZE=1
+    -s EXPORT_NAME="OpenSSLModule"
+    -s USE_ES6_IMPORT_META=0
+)
+
+# Base runtime methods for both builds
+set(WASM_BASE_RUNTIME_METHODS
+    'ccall'
+    'cwrap' 
+    'setValue'
+    'getValue'
+    'writeAsciiToMemory'
+    'lengthBytesUTF8'
+    'stringToUTF8'
+    'UTF8ToString'
+)
+
+# Configure build type specific flags
+if(BUILD_TYPE STREQUAL "wasm-native")
+    message(STATUS "Configuring WASM-native build with advanced web features...")
+    
+    # Enable WASM-native specific options
+    set(ENABLE_IDBFS ON)
+    set(ENABLE_ASYNC ON)
+    set(ENABLE_CERT_CACHE ON)
+    
+    # WASM-native enhanced flags
+    set(WASM_NATIVE_FLAGS
+        -s ASYNCIFY=1
+        -s FORCE_FILESYSTEM=1
+        -s ENVIRONMENT=web,worker,node
+        -lidbfs.js
+        --closure 0  # Disable closure for debugging, enable for production
+        --pre-js ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-pre-native.js
+    )
+    
+    # Enhanced runtime methods for WASM-native
+    set(WASM_NATIVE_RUNTIME_METHODS
+        ${WASM_BASE_RUNTIME_METHODS}
+        'FS'
+        'HEAPU8'
+        'HEAP32'
+        'writeFile'
+        'readFile'
+        'mkdir'
+        'mount'
+        'syncfs'
+        'createPreloadedFile'
+        'createLazyFile'
+        'analyzePath'
+    )
+    
+    # Combine all flags
+    set(WASM_RUNTIME_FLAGS
+        ${WASM_BASE_FLAGS}
+        ${WASM_NATIVE_FLAGS}
+        -s EXPORTED_RUNTIME_METHODS=[${WASM_NATIVE_RUNTIME_METHODS}]
+    )
+    
+    # Certificate bundle preloading
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/certs")
+        list(APPEND WASM_RUNTIME_FLAGS 
+            --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/certs@/ssl-system
+        )
+        message(STATUS "Preloading certificate bundles from certs/")
+    endif()
+    
+else()
+    message(STATUS "Configuring foundation build for minimal dependencies...")
+    
+    # Foundation build flags (minimal, fast loading)
+    set(WASM_FOUNDATION_FLAGS
+        --pre-js ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-pre.js
+        --closure 1  # Enable closure for smaller size
+    )
+    
+    # Combine foundation flags
+    set(WASM_RUNTIME_FLAGS
+        ${WASM_BASE_FLAGS}
+        ${WASM_FOUNDATION_FLAGS}
+        -s EXPORTED_RUNTIME_METHODS=[${WASM_BASE_RUNTIME_METHODS}]
+    )
+endif()
+
+# Apply WASM flags to linker
+string(REPLACE ";" " " WASM_RUNTIME_FLAGS_STR "${WASM_RUNTIME_FLAGS}")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WASM_RUNTIME_FLAGS_STR}")
+
+# OpenSSL exported functions for WASM
+set(OPENSSL_EXPORTED_FUNCTIONS
+    # Core initialization
+    '_OPENSSL_init_crypto'
+    '_OPENSSL_init_ssl'
+    '_OPENSSL_cleanup'
+    
+    # Memory management
+    '_OPENSSL_malloc'
+    '_OPENSSL_free'
+    '_OPENSSL_clear_free'
+    
+    # Certificate operations
+    '_X509_new'
+    '_X509_free'
+    '_X509_load_cert_file'
+    '_X509_load_cert_crl_file' 
+    '_X509_verify_cert'
+    '_X509_get_subject_name'
+    '_X509_get_issuer_name'
+    '_X509_get_serialNumber'
+    '_X509_get_notBefore'
+    '_X509_get_notAfter'
+    
+    # Certificate store operations
+    '_X509_STORE_new'
+    '_X509_STORE_free'
+    '_X509_STORE_add_cert'
+    '_X509_STORE_set_default_paths'
+    '_X509_STORE_load_locations'
+    
+    # SSL context operations  
+    '_SSL_CTX_new'
+    '_SSL_CTX_free'
+    '_SSL_CTX_load_verify_locations'
+    '_SSL_CTX_set_default_verify_paths'
+    '_SSL_CTX_set_verify'
+    
+    # SSL session operations
+    '_SSL_new'
+    '_SSL_free'
+    '_SSL_set_bio'
+    '_SSL_connect'
+    '_SSL_accept'
+    '_SSL_read'
+    '_SSL_write'
+    '_SSL_shutdown'
+    
+    # BIO operations
+    '_BIO_new'
+    '_BIO_free'
+    '_BIO_new_mem_buf'
+    '_BIO_new_file'
+    '_BIO_read'
+    '_BIO_write'
+    
+    # Digest operations
+    '_EVP_md5'
+    '_EVP_sha1'
+    '_EVP_sha256'
+    '_EVP_sha512'
+    '_EVP_DigestInit_ex'
+    '_EVP_DigestUpdate' 
+    '_EVP_DigestFinal_ex'
+    
+    # Error handling
+    '_ERR_get_error'
+    '_ERR_error_string'
+    '_ERR_print_errors'
+    '_ERR_clear_error'
+)
+
+# Add exported functions to linker flags
+list(JOIN OPENSSL_EXPORTED_FUNCTIONS "," EXPORTED_FUNCTIONS_STR)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s EXPORTED_FUNCTIONS=[${EXPORTED_FUNCTIONS_STR}]")
+
+# Configure OpenSSL build options based on build type
+set(OPENSSL_CONFIGURE_OPTIONS
+    no-shared
+    no-tests
+    no-apps
+    no-docs
+    --libdir=lib
+)
+
+# Security hardening options
+list(APPEND OPENSSL_CONFIGURE_OPTIONS
+    no-ssl3          # Disable SSL 3.0
+    no-ssl3-method   # Disable SSL 3.0 methods
+    no-weak-ssl-ciphers  # Disable weak ciphers
+)
+
+# Size optimization for WASM
+if(BUILD_TYPE STREQUAL "foundation")
+    list(APPEND OPENSSL_CONFIGURE_OPTIONS
+        no-async        # Disable async for smaller size
+        no-deprecated   # Remove deprecated functions
+    )
+endif()
+
+# Print configuration summary
+message(STATUS "=== OpenSSL Configuration Summary ===")
+message(STATUS "Configure options: ${OPENSSL_CONFIGURE_OPTIONS}")
+message(STATUS "Exported functions: ${OPENSSL_EXPORTED_FUNCTIONS}")
+message(STATUS "WASM flags: ${WASM_RUNTIME_FLAGS_STR}")
+
+# OpenSSL uses its own build system, so we create a custom target
+add_custom_target(openssl_wasm ALL
+    COMMAND ${CMAKE_COMMAND} -E echo "Building OpenSSL for WASM..."
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/Configure 
+        ${OPENSSL_CONFIGURE_OPTIONS}
+        CC=${CMAKE_C_COMPILER}
+        --cross-compile-prefix=
+    COMMAND emmake make -j${CMAKE_BUILD_PARALLEL_LEVEL}
+    
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Building OpenSSL WASM with ${BUILD_TYPE} configuration"
+)
+
+# Installation configuration
+install(
+    FILES ${CMAKE_CURRENT_SOURCE_DIR}/libssl.a
+          ${CMAKE_CURRENT_SOURCE_DIR}/libcrypto.a
+    DESTINATION lib
+    OPTIONAL
+)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/openssl
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
+)
+
+# WASM-native specific installations
+if(BUILD_TYPE STREQUAL "wasm-native")
+    install(
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-wasm-native.js
+              ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-wasm-native.d.ts
+        DESTINATION wasm
+        OPTIONAL
+    )
+else()
+    install(
+        FILES ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-wasm.js
+              ${CMAKE_CURRENT_SOURCE_DIR}/wasm/openssl-wasm.d.ts
+        DESTINATION wasm
+        OPTIONAL
+    )
+endif()
+
+# Status output
+message(STATUS "=== Build Configuration Complete ===")
+if(BUILD_TYPE STREQUAL "wasm-native")
+    message(STATUS "🚀 WASM-native build: Enhanced with IDBFS, async loading, certificate caching")
+    message(STATUS "📁 Certificate storage: Persistent IDBFS + temporary MEMFS")
+    message(STATUS "🔐 Security: Memory-only private keys, encrypted client certs")
+else()
+    message(STATUS "🏗️ Foundation build: Optimized for minimal size and dependencies")  
+    message(STATUS "📦 Size optimized: Minimal runtime, fast loading")
+    message(STATUS "🔗 Integration ready: For graphics libraries and frameworks")
+endif()

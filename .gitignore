@@ -405,3 +405,27 @@ doc-nits
 # LSP (Language Server Protocol) support
 .cache/
 compile_commands.json
+
+# WASM build artifacts  
+build-*/
+install-*/
+install-foundation/
+install-wasm-native/
+wasm/*.wasm
+wasm/*.js.mem
+wasm/*.js.symbols  
+wasm/*.js.temp
+wasm/node_modules/
+wasm/package-lock.json
+wasm/yarn.lock
+
+# WASM-specific temporary files
+*.wast
+*.wat
+benchmark-report-*.json
+test-results/
+
+# CI/CD artifacts
+build-logs/
+emsdk/
+emsdk_env.sh
