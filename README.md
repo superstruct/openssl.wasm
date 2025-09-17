@@ -1,13 +1,12 @@
-Welcome to the OpenSSL Project
-==============================
+# @discere-os/openssl.wasm
 
-[![openssl logo]][www.openssl.org]
+WebAssembly port of OpenSSL - Robust cryptographic library providing TLS/SSL protocols and general-purpose cryptography.
 
-[![github actions ci badge]][github actions ci]
-[![Nightly OS Zoo ci badge](https://github.com/openssl/openssl/actions/workflows/os-zoo.yml/badge.svg)](https://github.com/openssl/openssl/actions/workflows/os-zoo.yml)
-[![Provider Compatibility](https://github.com/openssl/openssl/actions/workflows/provider-compatibility.yml/badge.svg)](https://github.com/openssl/openssl/actions/workflows/provider-compatibility.yml)
-[![Quic Interop](https://github.com/openssl/openssl/actions/workflows/run_quic_interop.yml/badge.svg)](https://github.com/openssl/openssl/actions/workflows/run_quic_interop.yml)
-[![Daily checks](https://github.com/openssl/openssl/actions/workflows/run-checker-daily.yml/badge.svg)](https://github.com/openssl/openssl/actions/workflows/run-checker-daily.yml)
+[![CI/CD](https://github.com/discere-os/discere-nucleus/actions/workflows/openssl-wasm-ci.yml/badge.svg)](https://github.com/discere-os/discere-nucleus/actions)
+[![JSR](https://jsr.io/badges/@discere-os/openssl.wasm)](https://jsr.io/@discere-os/openssl.wasm)
+[![npm version](https://badge.fury.io/js/@discere-os%2Fopenssl.wasm.svg)](https://badge.fury.io/js/@discere-os%2Fopenssl.wasm)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.txt)
+[![Status](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/discere-os/discere-nucleus)
 
 OpenSSL is a robust, commercial-grade, full-featured Open Source Toolkit
 for the TLS (formerly SSL), DTLS and QUIC protocols.
