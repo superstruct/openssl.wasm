@@ -285,10 +285,10 @@ static void simd_ec_point_double(uint32_t* px, uint32_t* py, uint32_t* pz, int f
 
 EMSCRIPTEN_KEEPALIVE
 void openssl_init(void) {
-    SSL_library_init();
-    SSL_load_error_strings();
-    OpenSSL_add_all_algorithms();
-    
+    // OpenSSL 3.0+ initialization - replaces deprecated functions
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+
     // Initialize SIMD detection
     openssl_has_simd();
 }
@@ -311,7 +311,9 @@ int openssl_rand_bytes(unsigned char* buf, int num) {
 
 EMSCRIPTEN_KEEPALIVE
 int openssl_rand_pseudo_bytes(unsigned char* buf, int num) {
-    return RAND_pseudo_bytes(buf, num);
+    // RAND_pseudo_bytes was deprecated in OpenSSL 3.0
+    // Use RAND_bytes for cryptographically secure random numbers
+    return RAND_bytes(buf, num);
 }
 
 // SIMD-optimized SHA-256 hashing

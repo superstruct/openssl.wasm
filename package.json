@@ -6,7 +6,7 @@
   "types": "wasm/openssl-wasm-native.d.ts",
   "files": [
     "wasm/",
-    "install-wasm-native/",
+    "install-all/",
     "certs/",
     "examples/"
   ],
@@ -43,13 +43,13 @@
     "path": false
   },
   "buildInfo": {
-    "buildType": "wasm-native",
-    "buildDate": "2025-09-05T08:28:04Z",
-    "emscriptenVersion": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.13-git",
+    "buildType": "all",
+    "buildDate": "2025-09-19T03:34:18Z",
+    "emscriptenVersion": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.14-git",
     "features": {
-      "persistentStorage": true,
-      "asyncLoading": true,
-      "certificateCache": true,
+      "persistentStorage": false,
+      "asyncLoading": false,
+      "certificateCache": false,
       "securityFirst": true
     }
   }

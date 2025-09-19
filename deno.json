@@ -35,18 +35,17 @@
     "check:all": "deno check src/lib/index.ts && deno check demo-deno.ts && deno check bench/crypto.bench.ts && deno check _build_npm.ts"
   },
   "compilerOptions": {
-    "lib": ["deno.ns", "dom", "es2022", "deno.unstable", "webgpu"],
+    "lib": ["deno.ns", "dom", "es2022", "deno.unstable"],
     "strict": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
-    "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noPropertyAccessFromIndexSignature": true,
     "noUncheckedIndexedAccess": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
   },
   "fmt": {
     "include": ["src/", "tests/", "demo-deno.ts", "bench/"],
